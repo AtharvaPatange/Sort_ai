@@ -11,6 +11,7 @@ export const useWaste = () => useContext(WasteContext)
 export const WasteProvider = ({ children }) => {
   const [detectedObject, setDetectedObject] = useState(null)
   const [classification, setClassification] = useState(null)
+  const [components, setComponents] = useState([])
   const [showConfetti, setShowConfetti] = useState(false)
   
   const wasteCategories = [
@@ -45,6 +46,23 @@ export const WasteProvider = ({ children }) => {
       icon: '🗑️',
       description: 'Waste that cannot be recycled or composted',
       examples: ['Styrofoam', 'Certain plastics', 'Dirty paper products', 'Diapers']
+    },
+    { 
+      id: 'solid', 
+      name: 'Solid Waste', 
+      color: 'bg-gray-600',
+      gradient: 'from-gray-500 to-gray-700',
+      icon: '🗑️',
+      description: 'Non-recyclable solid materials that require proper disposal',
+      examples: ['Broken electronics', 'Mixed materials', 'Non-recyclable plastics']
+    },
+    { 
+      id: 'unknown', 
+      name: 'Unclassified Waste',
+      color: 'bg-yellow-500',
+      icon: '❓',
+      description: 'Items that could not be classified into a specific category',
+      examples: ['Unidentified materials', 'Complex composite items']
     }
   ]
   
@@ -90,15 +108,23 @@ export const WasteProvider = ({ children }) => {
       if (!data.success) {
         throw new Error(data.error || 'Failed to classify image');
       }
-        console.log(data);
+      console.log(data);
         
       setDetectedObject({
-        imageSrc: cloudinaryUrl, // Now using Cloudinary URL
+        imageSrc: cloudinaryUrl,
         name: data.objectName,
         confidence: data.confidence,
-        reason: data.reason
+        reason: data.components?.[0]?.reason || ''
       });
+      
       setClassification(data.classification);
+      
+      // Set components if available
+      if (data.components && data.components.length > 0) {
+        setComponents(data.components.filter(comp => comp.name || comp.reason));
+      } else {
+        setComponents([]);
+      }
       
       return data.classification;
     } catch (error) {
@@ -115,6 +141,7 @@ export const WasteProvider = ({ children }) => {
   const resetDetection = () => {
     setDetectedObject(null)
     setClassification(null)
+    setComponents([])
   }
 
   return (
@@ -123,6 +150,7 @@ export const WasteProvider = ({ children }) => {
       setDetectedObject,
       classification, 
       setClassification,
+      components,
       showConfetti,
       wasteCategories,
       classifyObject,
@@ -132,4 +160,4 @@ export const WasteProvider = ({ children }) => {
       {children}
     </WasteContext.Provider>
   )
-  }
+}

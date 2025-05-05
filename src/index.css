@@ -7,6 +7,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Color variables for arrows */
+  --primary-500: #10B981;
+  --error-500: #EF4444;
+  --gray-600: #4B5563;
+  --secondary-500: #3B82F6;
 }
 
 body {

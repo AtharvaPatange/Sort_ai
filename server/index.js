@@ -32,7 +32,7 @@ const wasteCategories = [
     color: 'bg-error-500',
     gradient: 'from-error-400 to-error-600',
     description: 'Dangerous Materials',
-    examples: ['Batteries', 'Paint', 'Pesticides', 'Medical waste']
+    examples: ['Batteries', 'Paint', 'Pesticides', 'Medical waste', 'Scissors', 'Injections', 'Syringes', 'Sharp objects']
   },
   { 
     id: 'solid', 
@@ -51,7 +51,7 @@ const wasteCategories = [
     gradient: 'from-secondary-400 to-secondary-600',
     description: 'Biodegradable Waste',
     examples: ['Fruit peels', 'Vegetable scraps', 'Leaves', 'Food leftovers']
-  }
+  },
 ];
 
 // Gemini setup
@@ -63,18 +63,21 @@ async function classifyWaste(imageBase64) {
   const prompt = `Analyze this image and classify the waste item with high accuracy:
 
 1. Identify the specific waste object and its materials
-2. Classify it into exactly one of these categories:
+2. Identify if the object has multiple components (e.g., plastic bottle with metal cap)
+3. For each component, classify it into exactly one of these categories:
    - Recyclable Waste (e.g., paper, glass bottles, plastic bottles, aluminum cans)
    - Hazardous Waste (e.g., batteries, paint, pesticides, medical waste)
    - Solid Waste (e.g., broken toys, used tissue, plastic wrappers, old shoes)
    - Organic Waste (e.g., fruit peels, vegetable scraps, leaves, food leftovers)
-3. Provide a detailed explanation of why it belongs in that category
-4. Estimate classification confidence (0-100%)
+4. IMPORTANT: All medical-related objects like scissors, needles, syringes, or any sharp objects MUST be classified as Hazardous Waste
+5. Provide a detailed explanation of why each component belongs in that category
+6. Estimate classification confidence (0-100%)
 
 Format the response exactly as:
-Object: [detailed object name and materials]
-Category: [exact category from the list]
-Reason: [detailed explanation]
+Object: [detailed object name]
+Components: [list of components, separated by semicolons]
+Categories: [category for each component, in same order, separated by semicolons]
+Reasons: [reason for each component, in same order, separated by semicolons]
 Confidence: [number]`;
 
   const result = await model.generateContent([
@@ -92,14 +95,28 @@ Confidence: [number]`;
   
   // Parse the response
   const objectMatch = text.match(/Object: (.*)/i);
-  const categoryMatch = text.match(/Category: (.*)/i);
-  const reasonMatch = text.match(/Reason: (.*)/i);
+  const componentsMatch = text.match(/Components: (.*)/i);
+  const categoriesMatch = text.match(/Categories: (.*)/i);
+  const reasonsMatch = text.match(/Reasons: (.*)/i);
   const confidenceMatch = text.match(/Confidence: (\d+)/i);
+
+  // Extract components and their categories
+  const components = componentsMatch ? componentsMatch[1].split(';').map(c => c.trim()) : ['Unknown component'];
+  const categories = categoriesMatch ? categoriesMatch[1].split(';').map(c => c.trim().toLowerCase()) : ['unknown'];
+  const reasons = reasonsMatch ? reasonsMatch[1].split(';').map(r => r.trim()) : [''];
+
+  // Map components to their waste categories
+  const componentDetails = components.map((component, index) => {
+    return {
+      name: component,
+      category: categories[index] || 'unknown',
+      reason: reasons[index] || ''
+    };
+  });
 
   return {
     object: objectMatch ? objectMatch[1].trim() : 'Unknown object',
-    category: categoryMatch ? categoryMatch[1].trim().toLowerCase() : 'unknown',
-    reason: reasonMatch ? reasonMatch[1].trim() : '',
+    components: componentDetails,
     confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 50
   };
 }
@@ -131,26 +148,31 @@ app.post('/api/classify', async (req, res) => {
 
     const result = await classifyWaste(base64Image);
 
-    const matchedCategory = wasteCategories.find(cat =>
-      result.category.includes(cat.id) || result.category.includes(cat.name.toLowerCase())
-    );
+    // Map component categories to our defined waste categories
+    const mappedComponents = result.components.map(component => {
+      const matchedCategory = wasteCategories.find(cat =>
+        component.category.includes(cat.id) || 
+        component.category.includes(cat.name.toLowerCase())
+      ) || { id: 'unknown', name: 'Unclassified Waste' };
 
-    if (!matchedCategory) {
-      return res.status(200).json({ 
-        success: true, 
-        classification: { id: 'unknown', name: 'Unclassified Waste' },
-        objectName: result.object,
-        reason: result.reason,
-        confidence: 50 
-      });
-    }
+      return {
+        name: component.name,
+        classification: matchedCategory,
+        reason: component.reason
+      };
+    });
+
+    // Determine the main classification (first component or most common)
+    const mainClassification = mappedComponents.length > 0 
+      ? mappedComponents[0].classification 
+      : { id: 'unknown', name: 'Unclassified Waste' };
 
     res.json({
       success: true,
-      classification: matchedCategory,
       objectName: result.object,
-      reason: result.reason,
-      confidence: Math.floor(Math.random() * 20) + 80,
+      classification: mainClassification,
+      components: mappedComponents,
+      confidence: result.confidence,
     });
   } catch (err) {
     console.error('Error in classification:', err);
