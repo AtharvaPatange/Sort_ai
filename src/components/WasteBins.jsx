@@ -232,8 +232,8 @@ const WasteBins = ({
           </div>
         </div>
       )}
-      {/* Temperature and Humidity display at the top right */}
-      <div className="absolute top-2 right-4 flex items-center gap-6 z-10">
+      {/* Temperature and Humidity display above classification/component indicator */}
+      <div className="flex items-center justify-end gap-6 mb-1">
         <div className="flex items-center gap-1 text-blue-700 font-semibold text-lg">
           <span className="text-2xl">🌡️</span>
           <span>{temperature}°C</span>
@@ -243,6 +243,7 @@ const WasteBins = ({
           <span>{humidity}%</span>
         </div>
       </div>
+
       {/* Current component indicator */}
       {hasComponents && (
         <div className="mb-4 text-center">
