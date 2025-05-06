@@ -14,6 +14,12 @@ export const WasteProvider = ({ children }) => {
   const [components, setComponents] = useState([])
   const [showConfetti, setShowConfetti] = useState(false)
   
+  // Add these new state variables
+  const [wasteQueue, setWasteQueue] = useState([]);
+  const [currentWasteIndex, setCurrentWasteIndex] = useState(0);
+  const [currentComponentIndex, setCurrentComponentIndex] = useState(0);
+  const [processingComponents, setProcessingComponents] = useState(false);
+  
   const wasteCategories = [
     { 
       id: 'recyclable', 
@@ -144,6 +150,33 @@ export const WasteProvider = ({ children }) => {
     setComponents([])
   }
 
+  // Add this function to process the next waste item
+  const processNextWasteItem = () => {
+    if (currentWasteIndex < wasteQueue.length - 1) {
+      setCurrentWasteIndex(currentWasteIndex + 1);
+      setDetectedObject(wasteQueue[currentWasteIndex + 1].object);
+      setClassification(wasteQueue[currentWasteIndex + 1].classification);
+    } else {
+      // All items processed, reset
+      resetDetection();
+    }
+  };
+  
+  // Add this function to process components sequentially
+  const processNextComponent = () => {
+    if (components && components.length > 0) {
+      if (currentComponentIndex < components.length - 1) {
+        // Move to the next component
+        setCurrentComponentIndex(currentComponentIndex + 1);
+        setProcessingComponents(true);
+      } else {
+        // All components processed, reset
+        setCurrentComponentIndex(0);
+        setProcessingComponents(false);
+      }
+    }
+  };
+  
   return (
     <WasteContext.Provider value={{
       detectedObject, 
@@ -155,7 +188,15 @@ export const WasteProvider = ({ children }) => {
       wasteCategories,
       classifyObject,
       handleCorrectClassification,
-      resetDetection
+      resetDetection,
+      // Add the new values to the context
+      wasteQueue,
+      setWasteQueue,
+      currentWasteIndex,
+      processNextWasteItem,
+      currentComponentIndex,
+      processingComponents,
+      processNextComponent
     }}>
       {children}
     </WasteContext.Provider>

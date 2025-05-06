@@ -1,62 +1,60 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { usePoints } from '../context/PointsContext';
 
-const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongBin, onNextItem }) => {
+const WasteBins = ({
+  classification,
+  onAnimationComplete,
+  onCorrectBin,
+  onWrongBin,
+  onNextItem,
+  components = []
+}) => {
+  const [currentComponentIndex, setCurrentComponentIndex] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [animationCompleted, setAnimationCompleted] = useState(false);
+  const [pointsEarned, setPointsEarned] = useState(0);
+  const [showPointsAnimation, setShowPointsAnimation] = useState(false);
+  const [showWellDone, setShowWellDone] = useState(false);
   const speechSynthesisRef = useRef(null);
-  
-  const bins = [
-    { 
-      id: 'recyclable', 
-      icon: '♻️', 
-      color: 'bg-primary-500',
-      label: 'Recyclable',
-      gradient: 'from-primary-400 to-primary-600',
-      description: 'Paper, Glass, Plastic, Metal'
-    },
-    { 
-      id: 'hazardous', 
-      icon: '⚠️', 
-      color: 'bg-error-500',
-      label: 'Hazardous',
-      gradient: 'from-error-400 to-error-600',
-      description: 'Batteries, Paint, Medical, Scissors, Sharp Objects'
-    },
-    { 
-      id: 'solid', 
-      icon: '🗑️', 
-      color: 'bg-gray-600',
-      label: 'Solid',
-      gradient: 'from-gray-500 to-gray-700',
-      description: 'Non-recyclable Items'
-    },
-    { 
-      id: 'organic', 
-      icon: '🌱', 
-      color: 'bg-secondary-500',
-      label: 'Organic',
-      gradient: 'from-secondary-400 to-secondary-600',
-      description: 'Food & Plant Waste'
-    }
-  ];
+  const { addPoints } = usePoints();
 
-  const targetBin = classification?.id || 'unknown';
+  // Determine if we're using components or just the main classification
+  const hasComponents = components && components.length > 0;
+  
+  // Get current component or fallback to main classification
+  const currentComponent = hasComponents 
+    ? components[currentComponentIndex] 
+    : { classification };
+
+  // Get the target bin for the current component
+  const targetBin = currentComponent?.classification?.id || classification?.id || 'unknown';
+
+  // Display name for the current item
+  const currentItemName = hasComponents 
+    ? components[currentComponentIndex].name 
+    : classification?.name || 'this item';
+
+  // Reset animation state when component or classification changes
+  useEffect(() => {
+    setAnimationCompleted(false);
+    setFeedback(null);
+    setShowPointsAnimation(false);
+    setShowWellDone(false);
+  }, [currentComponentIndex, classification]);
+
+  // Add a key to force re-render of animation components
+  const animationKey = `${currentComponentIndex}-${currentItemName}`;
 
   // Function to speak text using the Web Speech API
   const speak = (text, rate = 1) => {
-    // Cancel any ongoing speech
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new window.SpeechSynthesisUtterance(text);
       utterance.rate = rate;
       utterance.pitch = 1;
       utterance.volume = 1;
-      
-      // Store the utterance reference to be able to cancel it later if needed
       speechSynthesisRef.current = utterance;
-      
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -64,59 +62,70 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
   // Speak instructions when animation completes
   useEffect(() => {
     if (animationCompleted && targetBin) {
-      const targetBinObj = bins.find(bin => bin.id === targetBin);
-      if (targetBinObj) {
-        const instructionText = `Please put this item in the ${targetBinObj.label} bin.`;
-        speak(instructionText);
-      }
+      const instructionText = `Please put ${currentItemName} in the ${currentComponent.classification?.name || classification?.name} bin.`;
+      speak(instructionText);
     }
-    
-    // Cleanup function to cancel any speech when component unmounts
     return () => {
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
     };
-  }, [animationCompleted, targetBin]);
+  }, [animationCompleted, targetBin, currentComponent, classification, currentItemName]);
 
   const handleBinClick = (binId) => {
-    if (feedback) return; // Prevent multiple clicks during feedback
-    
+    if (feedback || showWellDone) return; // Prevent multiple clicks during feedback or after completion
+
     if (binId === targetBin) {
-      const feedbackMessage = 'Great job! That\'s the correct bin.';
+      // Calculate and add points
+      const earnedPoints = addPoints(targetBin, true);
+      setPointsEarned(earnedPoints);
+      setShowPointsAnimation(true);
+
+      const feedbackMessage = `Great job! ${currentItemName} goes in the ${currentComponent.classification?.name || classification?.name} bin.`;
       setFeedback({
         type: 'correct',
         message: feedbackMessage
       });
-      
-      // Speak the positive feedback
+
       speak(feedbackMessage, 1.1);
-      
+
       if (onCorrectBin) onCorrectBin();
-      
-      // Move to next item after delay
+
       setTimeout(() => {
         setFeedback(null);
-        if (onNextItem) onNextItem();
-      }, 8000);
+        setShowPointsAnimation(false);
+
+        // Move to next component if available
+        if (hasComponents && currentComponentIndex < (components.length - 1)) {
+          setCurrentComponentIndex(prevIndex => prevIndex + 1);
+        } else {
+          // All components done, show "Well done" message
+          setShowWellDone(true);
+          setTimeout(() => {
+            setShowWellDone(false);
+            if (onNextItem) onNextItem();
+          }, 2500);
+        }
+      }, 1800);
     } else {
-      const targetBinObj = bins.find(bin => bin.id === targetBin);
-      const feedbackMessage = `Oops! This item belongs in the ${targetBinObj?.label} bin.`;
-      
+      // Add fewer points for incorrect attempt
+      const earnedPoints = addPoints(targetBin, false);
+      setPointsEarned(earnedPoints);
+
+      const feedbackMessage = `Oops! ${currentItemName} belongs in the ${currentComponent.classification?.name || classification?.name} bin.`;
+
       setFeedback({
         type: 'wrong',
         message: feedbackMessage
       });
-      
-      // Speak the correction feedback
+
       speak(feedbackMessage);
-      
+
       if (onWrongBin) onWrongBin();
-      
-      // Clear feedback after delay
+
       setTimeout(() => {
         setFeedback(null);
-      }, 2000);
+      }, 1200);
     }
   };
 
@@ -125,8 +134,54 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
     if (onAnimationComplete) onAnimationComplete();
   };
 
+  const bins = [
+    {
+      id: 'recyclable',
+      icon: '♻️',
+      color: 'bg-primary-500',
+      label: 'Recyclable',
+      gradient: 'from-primary-400 to-primary-600',
+      description: 'Paper, Glass, Plastic, Metal'
+    },
+    {
+      id: 'hazardous',
+      icon: '⚠️',
+      color: 'bg-error-500',
+      label: 'Hazardous',
+      gradient: 'from-error-400 to-error-600',
+      description: 'Batteries, Paint, Medical, Sharp Objects'
+    },
+    {
+      id: 'solid',
+      icon: '🗑️',
+      color: 'bg-gray-600',
+      label: 'Solid',
+      gradient: 'from-gray-500 to-gray-700',
+      description: 'Non-recyclable Items'
+    },
+    {
+      id: 'organic',
+      icon: '🌱',
+      color: 'bg-secondary-500',
+      label: 'Organic',
+      gradient: 'from-secondary-400 to-secondary-600',
+      description: 'Food & Plant Waste'
+    }
+  ];
+
   return (
     <div className="relative w-full max-w-4xl mx-auto">
+      {/* Current component indicator */}
+      {hasComponents && (
+        <div className="mb-4 text-center">
+          <div className="inline-block bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+            <span className="text-white font-medium">
+              Component {currentComponentIndex + 1} of {components.length}: {currentItemName}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Feedback message */}
       <AnimatePresence>
         {feedback && (
@@ -143,6 +198,50 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
         )}
       </AnimatePresence>
 
+      {/* Points animation */}
+      <AnimatePresence>
+        {showPointsAnimation && (
+          <motion.div
+            initial={{ opacity: 0, y: 0, scale: 0.5 }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              y: -100,
+              scale: 1.5
+            }}
+            transition={{
+              duration: 2,
+              times: [0, 0.2, 0.8, 1]
+            }}
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30"
+          >
+            <div className="flex items-center bg-yellow-400 text-yellow-900 px-4 py-2 rounded-full shadow-lg font-bold">
+              <span className="text-xl mr-1">+</span>
+              <span className="text-2xl">{pointsEarned}</span>
+              <span className="text-lg ml-1">pts</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Well done message */}
+      <AnimatePresence>
+        {showWellDone && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.5 }}
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-40 bg-green-100 border-2 border-green-500 rounded-xl shadow-lg px-8 py-6"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-4xl mb-2">🎉</span>
+              <h2 className="text-2xl font-bold text-green-700 mb-1">Well done!</h2>
+              <p className="text-green-700">You sorted all components correctly.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Fixed horizontal layout with 4 bins */}
       <div className="grid grid-cols-4 gap-3 w-full">
         {bins.map((bin, index) => (
@@ -155,15 +254,15 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
           >
             {/* Navigation arrow - only show after item animation completes */}
             {animationCompleted && targetBin === bin.id && (
-              <motion.div 
+              <motion.div
                 className="absolute -top-12 left-1/2 transform -translate-x-1/2"
                 initial={{ opacity: 0, y: -10 }}
-                animate={{ 
-                  opacity: [0.5, 1, 0.5], 
+                animate={{
+                  opacity: [0.5, 1, 0.5],
                   y: [-10, -5, -10]
                 }}
-                transition={{ 
-                  duration: 1.5, 
+                transition={{
+                  duration: 1.5,
                   repeat: Infinity,
                   repeatType: "reverse"
                 }}
@@ -185,7 +284,7 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
             >
               <div className="absolute inset-0 bg-black/10" />
               <div className="h-full flex flex-col items-center justify-center p-2">
-                <motion.div 
+                <motion.div
                   className="text-3xl mb-2"
                   animate={targetBin === bin.id ? {
                     scale: [1, 1.2, 1],
@@ -199,9 +298,10 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
                 <span className="text-white/70 text-xs text-center line-clamp-2">{bin.description}</span>
               </div>
 
-              <AnimatePresence>
+              <AnimatePresence mode="wait">
                 {targetBin === bin.id && (
                   <motion.div
+                    key={animationKey}
                     className="absolute -top-16 left-1/2 transform -translate-x-1/2"
                     initial={{ y: -50, scale: 0.5, opacity: 0 }}
                     animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -210,22 +310,22 @@ const WasteBins = ({ classification, onAnimationComplete, onCorrectBin, onWrongB
                   >
                     <motion.div
                       className="relative"
-                      animate={{ 
+                      animate={{
                         y: [0, 140],
                       }}
-                      transition={{ 
+                      transition={{
                         duration: 1,
                         ease: "easeIn"
                       }}
                     >
-                      <div className="text-3xl">{classification?.icon || '📦'}</div>
+                      <div className="text-3xl">{currentComponent.classification?.icon || classification?.icon || '📦'}</div>
                     </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               className={`w-full h-3 ${bin.color} rounded-b-lg mx-auto
                 bg-gradient-to-b from-black/20 to-black/10`}
               initial={{ scale: 0.9 }}

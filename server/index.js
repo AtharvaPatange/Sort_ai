@@ -23,7 +23,17 @@ const wasteCategories = [
     color: 'bg-primary-500',
     gradient: 'from-primary-400 to-primary-600',
     description: 'Paper, Glass, Metal, Plastic',
-    examples: ['Paper', 'Glass bottles', 'Plastic bottles', 'Aluminum cans']
+    examples: [
+      'Paper', 
+      'Glass bottles', 
+      'Plastic bottles', 
+      'Aluminum cans', 
+      'Cardboard boxes', 
+      'Aluminum foil', 
+      'Metal items', 
+      'Pens', 
+      'Pencils'
+    ]
   },
   { 
     id: 'hazardous', 
@@ -41,7 +51,7 @@ const wasteCategories = [
     color: 'bg-gray-600',
     gradient: 'from-gray-500 to-gray-700',
     description: 'Non-recyclable Items',
-    examples: ['Broken toys', 'Used tissue', 'Plastic wrappers', 'Old shoes']
+    examples: ['Broken toys', 'Used tissue',  'Old shoes', 'Styrofoam', 'Mixed material items']
   },
   { 
     id: 'organic', 
@@ -65,13 +75,14 @@ async function classifyWaste(imageBase64) {
 1. Identify the specific waste object and its materials
 2. Identify if the object has multiple components (e.g., plastic bottle with metal cap)
 3. For each component, classify it into exactly one of these categories:
-   - Recyclable Waste (e.g., paper, glass bottles, plastic bottles, aluminum cans)
+   - Recyclable Waste (e.g., paper, glass bottles, plastic bottles, aluminum cans, cardboard boxes, aluminum foil, metal items, pens, pencils)
    - Hazardous Waste (e.g., batteries, paint, pesticides, medical waste)
-   - Solid Waste (e.g., broken toys, used tissue, plastic wrappers, old shoes)
+   - Solid Waste (e.g., broken toys, used tissue, plastic wrappers, old shoes, styrofoam)
    - Organic Waste (e.g., fruit peels, vegetable scraps, leaves, food leftovers)
 4. IMPORTANT: All medical-related objects like scissors, needles, syringes, or any sharp objects MUST be classified as Hazardous Waste
-5. Provide a detailed explanation of why each component belongs in that category
-6. Estimate classification confidence (0-100%)
+5. IMPORTANT: Cardboard, paper, aluminum foil, metal items, pens, and pencils should be classified as Recyclable Waste, not Solid Waste or Organic Waste
+6. Provide a detailed explanation of why each component belongs in that category
+7. Estimate classification confidence (0-100%)
 
 Format the response exactly as:
 Object: [detailed object name]
