@@ -12,12 +12,14 @@ const ResultsPanel = () => {
     wasteCategories,
     components,
     handleCorrectClassification, 
-    handleIncorrectClassification 
+    handleIncorrectClassification,
+    resetDetection
   } = useWaste()
   
   const [showCorrection, setShowCorrection] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [expandedComponent, setExpandedComponent] = useState(null)
+  const [animationCompleted, setAnimationCompleted] = useState(false)
   
   if (!detectedObject || !classification) {
     return null
@@ -44,6 +46,23 @@ const ResultsPanel = () => {
 
   const toggleComponentDetails = (index) => {
     setExpandedComponent(expandedComponent === index ? null : index)
+  }
+  
+  const handleAnimationComplete = () => {
+    setAnimationCompleted(true)
+  }
+  
+  const handleCorrectBin = () => {
+    handleCorrectClassification()
+  }
+  
+  const handleWrongBin = () => {
+    // You could add specific feedback or point reduction here
+    console.log('Wrong bin selected')
+  }
+  
+  const handleNextItem = () => {
+    resetDetection()
   }
   
   const imageContainerVariants = {
@@ -126,27 +145,20 @@ const ResultsPanel = () => {
               </div>
             </motion.div>
             
-            {/* Horizontal Waste Bins Section */}
+            {/* Interactive Waste Bins with Navigation */}
             <motion.div
               variants={resultVariants}
               custom={1}
-              className="mb-6 overflow-x-auto pb-4"
+              className="mb-6"
             >
-              <h4 className="text-sm uppercase tracking-wider text-gray-500 mb-3">Waste Bins</h4>
-              <div className="flex space-x-4 min-w-max">
-                {wasteCategories.map((bin) => (
-                  <div 
-                    key={bin.id} 
-                    className={`relative flex-shrink-0 w-32 ${bin.id === classification.id ? 'ring-2 ring-offset-2 ' + bin.color : ''}`}
-                  >
-                    <div className={`h-40 rounded-t-lg ${bin.color} bg-gradient-to-b ${bin.gradient} flex flex-col items-center justify-center p-2 text-white`}>
-                      <span className="text-3xl mb-2">{bin.icon}</span>
-                      <span className="font-medium text-sm text-center">{bin.name}</span>
-                    </div>
-                    <div className={`h-3 ${bin.color} rounded-b-lg mx-auto w-28`}></div>
-                  </div>
-                ))}
-              </div>
+              <h4 className="text-sm uppercase tracking-wider text-gray-500 mb-3">Where should this go?</h4>
+              <WasteBins 
+                classification={classification}
+                onAnimationComplete={handleAnimationComplete}
+                onCorrectBin={handleCorrectBin}
+                onWrongBin={handleWrongBin}
+                onNextItem={handleNextItem}
+              />
             </motion.div>
             
             {/* Components with Smart Navigation Arrows */}
