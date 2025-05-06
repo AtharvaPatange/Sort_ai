@@ -18,6 +18,8 @@ const WasteBins = ({
   const [showWellDone, setShowWellDone] = useState(false);
   const speechSynthesisRef = useRef(null);
   const { addPoints } = usePoints();
+  const [fullBin, setFullBin] = useState(null);
+  const [lastFullBinId, setLastFullBinId] = useState(null);
 
   // Determine if we're using components or just the main classification
   const hasComponents = components && components.length > 0;
@@ -72,6 +74,14 @@ const WasteBins = ({
     };
   }, [animationCompleted, targetBin, currentComponent, classification, currentItemName]);
 
+  // Move fillLevels to state so it can be updated
+  const [fillLevels, setFillLevels] = useState({
+    recyclable: 80,
+    hazardous: 20,
+    solid: 60,
+    organic: 98
+  });
+
   const handleBinClick = (binId) => {
     if (feedback || showWellDone) return; // Prevent multiple clicks during feedback or after completion
 
@@ -80,6 +90,12 @@ const WasteBins = ({
       const earnedPoints = addPoints(targetBin, true);
       setPointsEarned(earnedPoints);
       setShowPointsAnimation(true);
+
+      // INCREMENT the fill level by 2% for the correct bin, max 100%
+      setFillLevels(prev => ({
+        ...prev,
+        [binId]: Math.min((prev[binId] ?? 0) + 2, 100)
+      }));
 
       const feedbackMessage = `Great job! ${currentItemName} goes in the ${currentComponent.classification?.name || classification?.name} bin.`;
       setFeedback({
@@ -103,7 +119,8 @@ const WasteBins = ({
           setShowWellDone(true);
           setTimeout(() => {
             setShowWellDone(false);
-            if (onNextItem) onNextItem();
+            // REMOVE or COMMENT OUT the next line to prevent auto navigation
+            // if (onNextItem) onNextItem();
           }, 2500);
         }
       }, 1800);
@@ -170,19 +187,51 @@ const WasteBins = ({
   ];
 
   // Example fill levels for each bin (replace with real data as needed)
-  const fillLevels = {
-    recyclable: 80, // 80% full
-    hazardous: 30,  // 30% full
-    solid: 60,      // 60% full
-    organic: 90     // 90% full
-  };
+  // REMOVE THIS DUPLICATE BLOCK:
+  // const fillLevels = {
+  //   recyclable: 80, // 80% full
+  //   hazardous: 20,  // 100% full
+  //   solid: 60,      // 60% full
+  //   organic: 98     // 90% full
+  // };
   
+  // Check for any bin that is 100% full and show popup
+  useEffect(() => {
+    const full = Object.entries(fillLevels).find(([id, level]) => level === 100);
+    if (full) {
+      if (lastFullBinId !== full[0]) {
+        const binInfo = bins.find(b => b.id === full[0]);
+        setFullBin(binInfo);
+        setLastFullBinId(full[0]);
+      }
+    } else {
+      setFullBin(null);
+      setLastFullBinId(null);
+    }
+  }, [fillLevels, bins, lastFullBinId]);
+
   // Example temperature and humidity (replace with real data as needed)
   const temperature = 27; // °C
   const humidity = 65;    // %
   
   return (
     <div className="relative w-full max-w-4xl mx-auto">
+      {/* Popup for full bin */}
+      {fullBin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg px-8 py-6 flex flex-col items-center">
+            <div className="text-4xl mb-2">{fullBin.icon}</div>
+            <h2 className="text-xl font-bold mb-2 text-red-600">{fullBin.label} Bin is Full!</h2>
+            <p className="mb-4 text-gray-700">Please empty the bin before adding more waste.</p>
+            <button
+              className="bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-600"
+              onClick={() => setFullBin(null)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
       {/* Temperature and Humidity display at the top right */}
       <div className="absolute top-2 right-4 flex items-center gap-6 z-10">
         <div className="flex items-center gap-1 text-blue-700 font-semibold text-lg">
