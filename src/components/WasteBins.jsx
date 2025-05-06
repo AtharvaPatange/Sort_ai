@@ -169,8 +169,31 @@ const WasteBins = ({
     }
   ];
 
+  // Example fill levels for each bin (replace with real data as needed)
+  const fillLevels = {
+    recyclable: 80, // 80% full
+    hazardous: 30,  // 30% full
+    solid: 60,      // 60% full
+    organic: 90     // 90% full
+  };
+  
+  // Example temperature and humidity (replace with real data as needed)
+  const temperature = 27; // °C
+  const humidity = 65;    // %
+  
   return (
     <div className="relative w-full max-w-4xl mx-auto">
+      {/* Temperature and Humidity display at the top right */}
+      <div className="absolute top-2 right-4 flex items-center gap-6 z-10">
+        <div className="flex items-center gap-1 text-blue-700 font-semibold text-lg">
+          <span className="text-2xl">🌡️</span>
+          <span>{temperature}°C</span>
+        </div>
+        <div className="flex items-center gap-1 text-blue-700 font-semibold text-lg">
+          <span className="text-2xl">💧</span>
+          <span>{humidity}%</span>
+        </div>
+      </div>
       {/* Current component indicator */}
       {hasComponents && (
         <div className="mb-4 text-center">
@@ -325,13 +348,10 @@ const WasteBins = ({
               </AnimatePresence>
             </motion.div>
 
-            <motion.div
-              className={`w-full h-3 ${bin.color} rounded-b-lg mx-auto
-                bg-gradient-to-b from-black/20 to-black/10`}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.5 }}
-            />
+            {/* Show fill percentage below each bin */}
+            <div className="mt-2 text-center text-sm font-semibold text-gray-700">
+              {fillLevels[bin.id] ?? 0}% full
+            </div>
           </motion.div>
         ))}
       </div>
