@@ -96,7 +96,7 @@ export const WasteProvider = ({ children }) => {
       const cloudinaryUrl = await uploadToCloudinary(imageData);
 
       // Then send URL to backend
-      const response = await fetch('http://localhost:3001/api/classify', {
+      const response = await fetch('https://sort-ai.onrender.com/api/classify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -32,7 +32,7 @@ const Header = ({ onInfoClick }) => {
           <span className={`text-xl md:text-2xl font-bold transition-colors duration-300 ${
             isScrolled ? 'text-primary-800' : 'text-white'
           }`}>
-            EcoSort
+            Sortyx AI
           </span>
         </div>
         
